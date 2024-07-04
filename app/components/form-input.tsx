@@ -3,14 +3,14 @@ interface FormInputProps {
   type: string;
   placeholder: string;
   required: boolean;
-  errors: string[];
+  errors?: string[];
 }
 
 export default function FormInput({
   type,
   placeholder,
   required,
-  errors,
+  errors = [],
   name,
 }: FormInputProps) {
   return (
