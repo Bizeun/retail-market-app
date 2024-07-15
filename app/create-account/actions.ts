@@ -1,4 +1,5 @@
 "use server";
+
 import {
   PASSWORD_MIN_LENGTH,
   PASSWORD_REGEX,
@@ -9,6 +10,7 @@ import { z } from "zod";
 import bcrypt from "bcrypt";
 import { redirect } from "next/navigation";
 import getSession from "@/lib/session";
+import { LogIn } from "@/lib/utils";
 
 const checkPasswords = ({
   password,
@@ -98,9 +100,7 @@ export async function createAccount(prevState: any, formData: FormData) {
         id: true,
       },
     });
-    const session = await getSession();
-    session.id = user.id;
-    await session.save();
+    await LogIn(user.id);
 
     redirect("/profile");
   }

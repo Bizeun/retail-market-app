@@ -14,7 +14,7 @@ async function getUser() {
       return user;
     }
   }
-  notFound();
+  notFound(); // Without session, cannot redirect
 }
 
 export default async function Profile() {
