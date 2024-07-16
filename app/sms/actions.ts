@@ -1,10 +1,24 @@
 "use server";
 
+import twilio from "twilio";
 import crypto from "crypto";
 import db from "@/lib/db";
 import { redirect } from "next/navigation";
 import validator from "validator";
 import { z } from "zod";
+import { LogIn } from "@/lib/utils";
+
+async function tokenExists(token: number) {
+  const exists = await db.sMSToken.findUnique({
+    where: {
+      token: token.toString(),
+    },
+    select: {
+      id: true,
+    },
+  });
+  return Boolean(exists);
+}
 
 const phoneSchema = z
   .string()
@@ -14,10 +28,15 @@ const phoneSchema = z
     "Wrong phone format"
   );
 
-const tokenSchema = z.coerce.number().min(100000).max(999999);
+const tokenSchema = z.coerce
+  .number()
+  .min(100000)
+  .max(999999)
+  .refine(tokenExists, "This token does not exist.");
 
 interface ActionState {
   token: boolean;
+  phone?: string;
 }
 
 async function getToken() {
@@ -76,19 +95,59 @@ export async function smsLogin(prevState: ActionState, formData: FormData) {
           },
         },
       });
+
+      const client = twilio(
+        process.env.TWILIO_ACCOUNT_SID,
+        process.env.TWILIO_AUTH_TOKEN
+      );
+      await client.messages.create({
+        body: `Your Karrot verification code is: ${token}`,
+        from: process.env.TWILIO_PHONE_NUMBER!,
+        to: process.env.MY_PHONE_NUMBER!, //originally it is result.data
+      });
       return {
         token: true,
+        phone: result.data,
       };
     }
   } else {
-    const result = tokenSchema.safeParse(token);
+    const result = await tokenSchema.spa(token);
+    const phoneResult = await phoneSchema.safeParse(prevState.phone);
     if (!result.success) {
       return {
-        token: true,
+        ...prevState,
         error: result.error.flatten(),
       };
     } else {
-      redirect("/");
+      // get the userId of token
+      // log the user in
+      const token = await db.sMSToken.findUnique({
+        where: {
+          token: result.data.toString(),
+          user: {
+            phone: phoneResult.data,
+          },
+        },
+        select: {
+          id: true,
+          userId: true,
+        },
+      });
+      if (!token) {
+        return {
+          ...prevState,
+          error: {
+            formErrors: ["This token is not exists"],
+          },
+        };
+      }
+      await LogIn(token!.userId);
+      await db.sMSToken.delete({
+        where: {
+          id: token!.id,
+        },
+      });
+      redirect("/profile");
     }
   }
 }
