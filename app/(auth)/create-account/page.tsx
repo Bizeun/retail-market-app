@@ -1,4 +1,5 @@
 "use client";
+
 import SocialLogin from "@/components/social-login";
 import { useFormState } from "react-dom";
 import { createAccount } from "./actions";
